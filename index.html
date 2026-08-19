@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scanner Absensi QR</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; margin: 15px; background-color: #f4f6f9; }
+    h2 { margin-bottom: 10px; color: #333; }
+    .controls { margin-bottom: 15px; }
+    select { padding: 10px; font-size: 16px; border-radius: 6px; border: 1px solid #ccc; width: 80%; max-width: 300px; }
+    #reader { width: 100%; max-width: 450px; margin: 0 auto; border-radius: 8px; overflow: hidden; background: #000; }
+    #status { margin-top: 15px; font-size: 15px; font-weight: bold; min-height: 24px; padding: 10px; border-radius: 6px; }
+    .success { background-color: #d4edda; color: #155724; }
+    .error { background-color: #f8d7da; color: #721c24; }
+    .processing { background-color: #fff3cd; color: #856404; }
+    button { padding: 10px 15px; font-size: 14px; margin-top: 10px; border-radius: 5px; border: none; background: #007bff; color: white; cursor: pointer; }
+  </style>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+</head>
+<body>
+
+  <h2>Scanner Absensi QR</h2>
+  
+  <div class="controls">
+    <label for="sesiSelect"><b>Pilih Sesi Absensi:</b></label><br><br>
+    <select id="sesiSelect">
+      <option value="log1">Sesi 1 (log1)</option>
+      <option value="log2">Sesi 2 (log2)</option>
+      <option value="log3">Sesi 3 (log3)</option>
+      <option value="log4">Sesi 4 (log4)</option>
+    </select>
+  </div>
+
+  <div id="reader"></div>
+  <div id="status">Meminta akses kamera...</div>
+
+  <script>
+    // MASUKKAN URL WEB APP GOOGLE APPS SCRIPT ANDA DI SINI
+    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbx.../exec";
+
+    let html5QrcodeScanner;
+    let isProcessing = false;
+
+    function onScanSuccess(decodedText) {
+      if (isProcessing) return;
+      isProcessing = true;
+
+      const targetSheet = document.getElementById('sesiSelect').value;
+      const statusDiv = document.getElementById('status');
+      
+      statusDiv.className = 'processing';
+      statusDiv.innerText = 'Menyimpan data: ' + decodedText + '...';
+
+      // Kirim Data via HTTP POST ke Apps Script
+      fetch(GAS_API_URL, {
+        method: "POST",
+        mode: "no-cors", // Menembus proteksi CORS Apps Script
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nama: decodedText, targetSheet: targetSheet })
+      })
+      .then(() => {
+        statusDiv.className = 'success';
+        statusDiv.innerText = 'Tersimpan: ' + decodedText + ' (' + targetSheet + ')';
+        setTimeout(() => { isProcessing = false; }, 2500);
+      })
+      .catch(err => {
+        statusDiv.className = 'error';
+        statusDiv.innerText = 'Gagal menyimpan data ke server.';
+        setTimeout(() => { isProcessing = false; }, 2500);
+      });
+    }
+
+    function initScanner() {
+      html5QrcodeScanner = new Html5Qrcode("reader");
+      const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+      // Paksa meminta kamera belakang (facingMode: environment)
+      html5QrcodeScanner.start(
+        { facingMode: "environment" }, 
+        config, 
+        onScanSuccess
+      ).then(() => {
+        const statusDiv = document.getElementById('status');
+        statusDiv.className = '';
+        statusDiv.innerText = 'Kamera aktif. Arahkan ke QR Code.';
+      }).catch(err => {
+        const statusDiv = document.getElementById('status');
+        statusDiv.className = 'error';
+        statusDiv.innerHTML = 'Akses kamera gagal/ditolak.<br><button onclick="initScanner()">Coba Lagi</button>';
+      });
+    }
+
+    window.onload = initScanner;
+  </script>
+</body>
+</html>
