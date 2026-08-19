@@ -36,7 +36,7 @@
   <div id="status">Meminta akses kamera...</div>
 
   <script>
-    // MASUKKAN URL WEB APP GOOGLE APPS SCRIPT ANDA DI SINI
+    // GANTI DENGAN URL WEB APP GOOGLE APPS SCRIPT ANDA (BERAKHIRAN /exec)
     const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyxFPV2ic2r2Xrpc341JZziLOdz0i_hTp9tPJKp1AxptLu94c0nuKlnBWapF_Jm3jcD/exec";
 
     let html5QrcodeScanner;
@@ -52,16 +52,26 @@
       statusDiv.className = 'processing';
       statusDiv.innerText = 'Menyimpan data: ' + decodedText + '...';
 
-      // Kirim Data via HTTP POST ke Apps Script
+      // Kirim data JSON ke Apps Script dengan header text/plain (menghindari blokir CORS)
       fetch(GAS_API_URL, {
         method: "POST",
-        mode: "no-cors", // Menembus proteksi CORS Apps Script
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nama: decodedText, targetSheet: targetSheet })
+        headers: {
+          "Content-Type": "text/plain;charset=utf-8"
+        },
+        body: JSON.stringify({ 
+          nama: decodedText, 
+          targetSheet: targetSheet 
+        })
       })
-      .then(() => {
-        statusDiv.className = 'success';
-        statusDiv.innerText = 'Tersimpan: ' + decodedText + ' (' + targetSheet + ')';
+      .then(response => response.json())
+      .then(data => {
+        if (data.status === 'success') {
+          statusDiv.className = 'success';
+          statusDiv.innerText = 'Tersimpan: ' + decodedText + ' (' + targetSheet + ')';
+        } else {
+          statusDiv.className = 'error';
+          statusDiv.innerText = 'Gagal: ' + data.message;
+        }
         setTimeout(() => { isProcessing = false; }, 2500);
       })
       .catch(err => {
@@ -75,7 +85,7 @@
       html5QrcodeScanner = new Html5Qrcode("reader");
       const config = { fps: 10, qrbox: { width: 250, height: 250 } };
 
-      // Paksa meminta kamera belakang (facingMode: environment)
+      // Mengaktifkan kamera belakang Android
       html5QrcodeScanner.start(
         { facingMode: "environment" }, 
         config, 
