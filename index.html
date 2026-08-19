@@ -12,8 +12,9 @@
     #reader { width: 100%; max-width: 450px; margin: 0 auto; border-radius: 8px; overflow: hidden; background: #000; }
     #status { margin-top: 15px; font-size: 15px; font-weight: bold; min-height: 24px; padding: 10px; border-radius: 6px; }
     .success { background-color: #d4edda; color: #155724; }
+    .duplicate { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
     .error { background-color: #f8d7da; color: #721c24; }
-    .processing { background-color: #fff3cd; color: #856404; }
+    .processing { background-color: #e2e3e5; color: #383d41; }
     button { padding: 10px 15px; font-size: 14px; margin-top: 10px; border-radius: 5px; border: none; background: #007bff; color: white; cursor: pointer; }
   </style>
   <script src="https://unpkg.com/html5-qrcode"></script>
@@ -36,7 +37,7 @@
   <div id="status">Meminta akses kamera...</div>
 
   <script>
-    // GANTI DENGAN URL WEB APP GOOGLE APPS SCRIPT ANDA (BERAKHIRAN /exec)
+    // MASUKKAN URL WEB APP GOOGLE APPS SCRIPT ANDA DI SINI
     const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyxFPV2ic2r2Xrpc341JZziLOdz0i_hTp9tPJKp1AxptLu94c0nuKlnBWapF_Jm3jcD/exec";
 
     let html5QrcodeScanner;
@@ -50,9 +51,8 @@
       const statusDiv = document.getElementById('status');
       
       statusDiv.className = 'processing';
-      statusDiv.innerText = 'Menyimpan data: ' + decodedText + '...';
+      statusDiv.innerText = 'Memeriksa data: ' + decodedText + '...';
 
-      // Kirim data JSON ke Apps Script dengan header text/plain (menghindari blokir CORS)
       fetch(GAS_API_URL, {
         method: "POST",
         headers: {
@@ -67,17 +67,21 @@
       .then(data => {
         if (data.status === 'success') {
           statusDiv.className = 'success';
-          statusDiv.innerText = 'Tersimpan: ' + decodedText + ' (' + targetSheet + ')';
+          statusDiv.innerText = '✅ ' + data.message;
+        } else if (data.status === 'duplicate') {
+          statusDiv.className = 'duplicate';
+          statusDiv.innerText = '⚠️ ' + data.message;
         } else {
           statusDiv.className = 'error';
-          statusDiv.innerText = 'Gagal: ' + data.message;
+          statusDiv.innerText = '❌ ' + data.message;
         }
-        setTimeout(() => { isProcessing = false; }, 2500);
+        // Memberikan jeda 3 detik sebelum kamera siap memindai QR berikutnya
+        setTimeout(() => { isProcessing = false; }, 3000);
       })
       .catch(err => {
         statusDiv.className = 'error';
-        statusDiv.innerText = 'Gagal menyimpan data ke server.';
-        setTimeout(() => { isProcessing = false; }, 2500);
+        statusDiv.innerText = '❌ Gagal terhubung ke server.';
+        setTimeout(() => { isProcessing = false; }, 3000);
       });
     }
 
@@ -85,7 +89,6 @@
       html5QrcodeScanner = new Html5Qrcode("reader");
       const config = { fps: 10, qrbox: { width: 250, height: 250 } };
 
-      // Mengaktifkan kamera belakang Android
       html5QrcodeScanner.start(
         { facingMode: "environment" }, 
         config, 
